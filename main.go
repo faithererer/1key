@@ -2069,6 +2069,14 @@ func main() {
 	go sessionGC(context.Background())
 
 	// 路由
+	// 静态文件服务
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.ServeFile(w, r, "index.html")
+			return
+		}
+		http.NotFound(w, r)
+	})
 
 	http.HandleFunc("/api/oauth/start", oauthStartHandler)
 	http.HandleFunc("/api/oauth/callback", oauthCallbackHandler)

@@ -11,7 +11,8 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 COPY --from=builder /app/sso-ws-server-new .
+COPY --from=builder /app/index.html .
 
-EXPOSE 8080
+EXPOSE 80
 
 CMD ["./sso-ws-server-new"]

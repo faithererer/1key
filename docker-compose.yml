@@ -5,7 +5,7 @@ services:
     image: ghcr.io/faithererer/1key:latest
     container_name: sso-ws-server
     ports:
-      - "8080:8080"
+      - "8080:80"
     restart: unless-stopped
     environment:
       - ENV=production
