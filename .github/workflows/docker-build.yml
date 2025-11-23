@@ -32,6 +32,6 @@ jobs:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ github.event.inputs.tag }}
-          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.event.inputs.tag }}
+          ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:latest
         platforms: linux/amd64
