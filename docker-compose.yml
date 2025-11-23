@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/your-username/your-repo:latest
+    container_name: sso-ws-server
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - ENV=production
+    volumes:
+      - ./config:/app/config:ro
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

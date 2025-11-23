@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>SheerID Verifier · Winter</title>
+  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Montserrat:wght@400;600&display=swap"
+    rel="stylesheet">
+
+  <script>
+    window.CONFIG = {
+      serverUrl: "https://api.1key.me",
+      hcaptcha: { sitekey: "d134e850-e5e0-4344-8084-3132818e7580" }
+    };
+  </script>
+  <style>
+    @layer base, components, utilities;
+
+    @layer base {
+      :root {
+        /* Modern Color Palette (OKLCH) */
+        --sun: oklch(98% 0.02 200);
+        --sand: oklch(98% 0.01 240);
+        --foam: oklch(100% 0 0);
+        --sea1: oklch(90% 0.05 240);
+        --sea2: oklch(80% 0.1 240);
+        --coral: oklch(80% 0.15 200);
+        --ink: oklch(35% 0.15 250);
+        --marine: oklch(45% 0.2 250);
+        --glass: color(display-p3 1 1 1 / 0.45);
+      }
+
+      @media (dynamic-range: high) {
+        :root {
+          --sun: color(display-p3 1.0 1.1 1.15);
+          --foam: color(display-p3 1.1 1.1 1.15);
+          --marine: color(display-p3 0.0 0.45 0.8);
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --sun: oklch(20% 0.05 260);
+          --sand: oklch(15% 0.05 260);
+          --sea1: oklch(25% 0.1 250);
+          --sea2: oklch(35% 0.15 250);
+          --ink: oklch(90% 0.05 240);
+          --marine: oklch(75% 0.15 220);
+          --glass: color(display-p3 0 0.1 0.2 / 0.45);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        dynamic-range-limit: high;
+      }
+
+      body {
+        font-family: 'Montserrat', system-ui, sans-serif;
+        color: var(--ink);
+        background: linear-gradient(in oklch 180deg, var(--sun) 0%, var(--sea1) 40%, var(--sea2) 70%, var(--marine) 100%);
+        overflow-x: hidden;
+      }
+
+      canvas {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+
+        &#bg-canvas {
+          z-index: -2;
+        }
+
+        &#snow-canvas {
+          z-index: -1;
+          pointer-events: none;
+        }
+      }
+    }
+
+    @layer components {
+      .container {
+        max-width: min(960px, 100vw - 32px);
+        margin: 54px auto;
+      }
+
+      .panel {
+        background: var(--glass);
+        backdrop-filter: blur(.15px) saturate(1.2);
+        border: 1px solid color-mix(in srgb, var(--foam), transparent 30%);
+        box-shadow: 0 8px 30px color-mix(in srgb, var(--ink), transparent 90%);
+        border-radius: 16px;
+        padding: 20px;
+
+        & .title {
+          display: inline-flex;
+          align-items: flex-start;
+          gap: 8px;
+          line-height: 1;
+          margin-bottom: 8px;
+          white-space: nowrap;
+
+          & h2 {
+            margin: 0;
+            font-family: 'Cinzel Decorative', cursive;
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            background: linear-gradient(180deg, var(--marine) 0%, var(--ink) 100%);
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 2px 0px color-mix(in srgb, var(--foam), transparent 20%));
+
+            @media (max-width: 640px) {
+              font-size: 22px;
+            }
+
+            @media (dynamic-range: high) {
+              filter: drop-shadow(0 0 20px color(display-p3 0.2 0.6 1.0 / 0.6));
+            }
+          }
+        }
+
+        & .badge-turbo {
+          position: relative;
+          top: -0.6em;
+          font-family: 'Montserrat', sans-serif;
+          font-size: .58em;
+          font-weight: 800;
+          letter-spacing: .5px;
+          padding: 2px 6px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, var(--foam) 0%, var(--sun) 10%, var(--sea1) 100%);
+          border: 1px solid color-mix(in srgb, var(--foam), transparent 20%);
+          color: var(--marine);
+          box-shadow: 0 2px 8px color-mix(in srgb, var(--marine), transparent 80%);
+          transform-origin: left bottom;
+          will-change: transform, filter;
+          cursor: help;
+
+          @media (max-width: 640px) {
+            font-size: 0.5em;
+            top: -0.4em;
+            padding: 1px 4px;
+            letter-spacing: 0;
+          }
+
+          @media (prefers-reduced-motion: no-preference) {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+            &:hover {
+              transform: scale(1.1) rotate(-5deg);
+            }
+          }
+        }
+
+        & .row {
+          display: flex;
+          gap: 8px;
+          margin: 12px 0;
+
+          &:has(input:focus) {
+            border-color: var(--sea2);
+          }
+
+          & input[type=url] {
+            flex: 1;
+            padding: 12px 12px;
+            border: 1px solid color-mix(in srgb, var(--foam), transparent 40%);
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--foam), transparent 75%);
+            backdrop-filter: blur(4px);
+            outline: none;
+            color: var(--ink);
+            font-family: 'Montserrat', sans-serif;
+            box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foam), transparent 60%);
+            transition: all 0.2s ease;
+
+            &::placeholder {
+              color: color-mix(in srgb, var(--ink), transparent 50%);
+            }
+
+            &:focus {
+              background: color-mix(in srgb, var(--foam), transparent 60%);
+              border-color: var(--sea2);
+              box-shadow: 0 0 0 4px color-mix(in srgb, var(--sea2), transparent 75%);
+            }
+          }
+
+          & button {
+            padding: 11px 16px;
+            border: 0;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(in oklch 135deg, oklch(0.48 0.1 220.65), color(display-p3 0.0 0.53 0.82) 60%, color(display-p3 0.01 0.61 0.9) 100%);
+            color: #fff;
+            letter-spacing: .2px;
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--marine), transparent 65%);
+            transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 10px 24px color-mix(in srgb, var(--marine), transparent 62%);
+              filter: brightness(1.05);
+            }
+
+            &:active {
+              transform: translateY(0);
+              box-shadow: 0 6px 18px color-mix(in srgb, var(--marine), transparent 65%);
+            }
+          }
+        }
+
+        & .small {
+          color: color-mix(in srgb, var(--ink), transparent 10%);
+          font-size: 12px;
+          opacity: .9;
+        }
+
+        & .badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--foam), transparent 40%);
+          margin-left: 8px;
+          border: 1px solid color-mix(in srgb, var(--foam), transparent 50%);
+        }
+
+        & pre {
+          background: color-mix(in srgb, var(--ink), black 20%);
+          color: var(--sun);
+          padding: 12px;
+          border-radius: 12px;
+          max-height: 420px;
+          overflow: auto;
+          box-shadow: 0 8px 26px rgba(0, 0, 0, .2);
+          border: 1px solid color-mix(in srgb, var(--foam), transparent 90%);
+          font-family: monospace;
+          scrollbar-width: thin;
+          scrollbar-color: var(--marine) transparent;
+        }
+      }
+    }
+
+    @layer components {
+      dialog {
+        padding: 0;
+        border: none;
+        background: transparent;
+
+        &::backdrop {
+          background: rgba(0, 30, 60, .5);
+          backdrop-filter: blur(2px);
+          transition: opacity 0.3s allow-discrete;
+        }
+
+        &[open] {
+          animation: slide-up 0.3s cubic-bezier(0.25, 0, 0.3, 1) forwards;
+
+          &::backdrop {
+            animation: fade-in 0.3s forwards;
+          }
+        }
+
+        /* Exit animation support (requires JS to wait for animation or @starting-style which is newer) */
+        /* For now we use simple entry animation */
+      }
+
+      #captchaCard {
+        background: var(--foam);
+        padding: 20px;
+        border-radius: 16px;
+        width: min(440px, 92vw);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+        color: var(--ink);
+      }
+
+      [popover] {
+        background: var(--foam);
+        color: var(--ink);
+        border: 1px solid var(--sea1);
+        padding: 8px 12px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        font-size: 0.8em;
+
+        /* Popover animation */
+        transition: opacity 0.2s, transform 0.2s;
+        opacity: 0;
+        transform: translateY(5px);
+
+        &:popover-open {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        @starting-style {
+          &:popover-open {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+        }
+      }
+    }
+
+    @keyframes slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+  <canvas id="snow-canvas" aria-hidden="true"></canvas>
+
+  <div class="container">
+    <div class="panel">
+      <div class="title">
+        <h2>SheerID Verifier</h2>
+        <sup class="badge-turbo" id="turboSup">Winter Edition</sup>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <input id="urlInput" type="url" placeholder="https://services.sheerid.com/verify/.../?verificationId=xxxx" />
+        <button id="btnStart">开始验证</button>
+      </div>
+
+      <div class="small">
+        队列信息：
+        <span id="qLen" class="badge">queueLen: -</span>
+        <span id="ahead" class="badge">ahead: -</span>
+        <span id="wait" class="badge">estWait: -s</span>
+      </div>
+
+      <pre id="log"></pre>
+    </div>
+  </div>
+
+  <dialog id="captchaModal">
+    <div id="captchaCard">
+      <div style="font-weight:800;margin-bottom:8px;color:var(--ink)">请完成人机验证</div>
+      <div id="hcaptcha-container" style="display:flex;justify-content:center"></div>
+      <div style="margin-top:10px;text-align:right"><button id="btnCloseCaptcha">关闭</button></div>
+    </div>
+  </dialog>
+
+  <script type="module">
+    /* ===== Logic ===== */
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log'), qLenEl = $('qLen'), aheadEl = $('ahead'), waitEl = $('wait');
+    let es = null, jobId = '', pingTimer = null, lastPingAt = 0, currentChallengeId = '', captchaResolver = null;
+
+    function log(msg) {
+      const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+      logEl.textContent += `[${t}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function randomPingDelay() { return 6000 + Math.floor(Math.random() * 3000); }
+
+    async function doLinuxDoOAuth() {
+      const r = await fetch(`${CONFIG.serverUrl}/api/oauth/start`, { credentials: 'include' });
+      if (!r.ok) { throw new Error('获取授权链接失败'); }
+      const { authUrl } = await r.json();
+      const w = window.open(authUrl, 'linuxdo_oauth', 'width=520,height=720');
+      if (!w) throw new Error('弹窗被拦截，请允许弹窗');
+      return await new Promise((resolve, reject) => {
+        const to = setTimeout(() => { try { w.close() } catch { }; reject(new Error('登录超时')); }, 2 * 60 * 1000);
+        function onMsg(ev) {
+          const d = ev.data || {};
+          if (d.type !== 'linuxdo_oauth') return;
+          window.removeEventListener('message', onMsg);
+          clearTimeout(to);
+          try { w.close(); } catch { }
+          resolve(true);
+        }
+        window.addEventListener('message', onMsg);
+      });
+    }
+    async function fetchMe() {
+      const r = await fetch(`${CONFIG.serverUrl}/api/oauth/me?_t=${Date.now()}`, { credentials: 'include' });
+      if (!r.ok) return { loggedIn: false };
+      return await r.json();
+    }
+    async function ensureLogin() {
+      let me = await fetchMe();
+      if (me.loggedIn) return me;
+      await doLinuxDoOAuth();
+      me = await fetchMe();
+      if (!me.loggedIn) throw new Error('OAuth 登录失败或被取消');
+      return me;
+    }
+
+    async function start() {
+      const url = $('urlInput').value.trim();
+      if (!url) { log('请输入验证URL'); return; }
+      const m = url.match(/verificationId=([a-f0-9]+)/i);
+      if (!m) { log('无效的验证ID格式'); return; }
+      const verificationId = m[1];
+
+      const token = await showCaptcha();
+      const me = await ensureLogin();
+      log(`已登录 Linux Do：${(me.user && (me.user.username || me.user.id)) || 'unknown'}`);
+
+      const payload = { verificationId, hcaptchaToken: token || '' };
+      const enc = await encrypt(payload, '0DWb9ZMkN0s9Ks9EBsXExYUtPYr6YTAB');
+
+      const r = await fetch(`${CONFIG.serverUrl}/api/queue/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain', 'X-CSRF': me.csrf },
+        body: enc,
+        credentials: 'include'
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { log('提交失败: ' + (data.error || r.status)); return; }
+      jobId = data.jobId;
+      log('已入队, JobID: ' + jobId);
+      openES(jobId);
+      scheduleNextPing(true);
+    }
+
+    function openES(id) {
+      if (es) { try { es.close(); } catch { } }
+      es = new EventSource(`${CONFIG.serverUrl}/api/queue/stream?id=${encodeURIComponent(id)}`);
+      es.addEventListener('status', ev => { log(`[STATUS] ${ev.data}`); if (ev.data === 'done' || ev.data === 'failed' || ev.data === 'removed') { clearPing(); } });
+      es.addEventListener('log', ev => log(ev.data));
+      es.addEventListener('result', ev => { log('✅ 成功，跳转URL: ' + ev.data); });
+      es.addEventListener('error', ev => { log('❌ 错误: ' + ev.data); });
+      es.addEventListener('end', ev => { log('=== Stream closed ==='); es.close(); clearPing(); });
+      es.addEventListener('metrics', ev => {
+        try {
+          const o = JSON.parse(ev.data);
+          qLenEl.textContent = `queueLen: ${o.queueLen}`;
+          aheadEl.textContent = `ahead: ${o.ahead}`;
+          waitEl.textContent = `estWait: ${o.estWaitSec}s`;
+        } catch { }
+      });
+      es.addEventListener('captcha', async ev => {
+        const o = JSON.parse(ev.data || '{}');
+        currentChallengeId = o.challengeId || '';
+        log('收到 captcha 复验请求，challenge=' + currentChallengeId);
+        try {
+          const token = await showCaptcha();
+          await submitCaptcha(token, currentChallengeId);
+          log('captcha 复验已提交');
+        } catch (e) {
+          log('captcha 复验取消/失败：' + e.message);
+        }
+      });
+    }
+
+    async function submitCaptcha(token, challengeId) {
+      const r = await fetch(`${CONFIG.serverUrl}/api/queue/captcha?id=${encodeURIComponent(jobId)}&challenge=${encodeURIComponent(challengeId)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        log('captcha 提交失败: ' + (j.error || r.status));
+      }
+    }
+
+    function scheduleNextPing(first = false) {
+      clearPing();
+      const delay = first ? randomPingDelay() : randomPingDelay();
+      pingTimer = setTimeout(doPing, delay);
+    }
+    function clearPing() { if (pingTimer) { clearTimeout(pingTimer); pingTimer = null; } }
+    async function doPing() {
+      const now = Date.now();
+      const delta = now - lastPingAt;
+      if (lastPingAt && delta < 5000) {
+        const pad = 5500 - delta;
+        setTimeout(doPing, pad);
+        return;
+      }
+      lastPingAt = now;
+      try {
+        const r = await fetch(`${CONFIG.serverUrl}/api/queue/ping?id=${encodeURIComponent(jobId)}`, { method: 'POST' });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          log('ping 失败: ' + (j.error || r.status));
+          clearPing();
+          return;
+        }
+      } catch (e) { log('ping 网络错误: ' + e.message); clearPing(); return; }
+      scheduleNextPing();
+    }
+
+    function showCaptcha() {
+      return new Promise((resolve, reject) => {
+        const dialog = $('captchaModal');
+        dialog.showModal();
+        $('hcaptcha-container').innerHTML = '';
+        captchaResolver = resolve;
+        try {
+          // Check if hcaptcha is loaded
+          if (typeof hcaptcha === 'undefined') {
+            reject(new Error('hCaptcha not loaded'));
+            closeCaptcha();
+            return;
+          }
+          hcaptcha.render('hcaptcha-container', {
+            sitekey: CONFIG.hcaptcha.sitekey,
+            callback: (token) => { closeCaptcha(); resolve(token); },
+            'error-callback': () => { closeCaptcha(); reject(new Error('hCaptcha failed')); }
+          });
+        } catch (e) { closeCaptcha(); reject(e); }
+      });
+    }
+    function closeCaptcha() {
+      const dialog = $('captchaModal');
+      dialog.close();
+      if (captchaResolver) { /* noop */ }
+    }
+
+    $('btnCloseCaptcha').addEventListener('click', closeCaptcha);
+
+    async function encrypt(data, key) {
+      const enc = new TextEncoder();
+      const bytes = enc.encode(JSON.stringify(data));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'AES-GCM' }, false, ['encrypt']);
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, bytes);
+      const out = new Uint8Array(iv.length + ct.byteLength);
+      out.set(iv, 0); out.set(new Uint8Array(ct), iv.length);
+      return btoa(String.fromCharCode(...out));
+    }
+
+    $('btnStart').onclick = start;
+
+    /* ====== Visuals ====== */
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d', { colorSpace: 'display-p3' });
+    let W = 0, H = 0, DPR = Math.min(2, window.devicePixelRatio || 1);
+
+    const bearImg = new Image();
+    bearImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath fill='%23FFF' d='M6 4h4v2h2v2h4v2h2v6h-2v-2h-2v2h-2v-2H8v2H6v-2H4v2H2V8h2V6h2V4z'/%3E%3Cpath fill='%23000' d='M10 6h2v2h-2V6z'/%3E%3C/svg%3E";
+
+    /* Water */
+    const SPRING_COUNT = 200;
+    const springs = [];
+    const spread = 0.25;
+    const tension = 0.035;
+    const damp = 0.065;
+
+    class Spring {
+      constructor(x) {
+        this.x = x;
+        this.targetHeight = 0;
+        this.height = 0;
+        this.velocity = 0;
+      }
+      update() {
+        const x = this.targetHeight - this.height;
+        this.velocity += tension * x - this.velocity * damp;
+        this.height += this.velocity;
+      }
+    }
+
+    function initSprings() {
+      springs.length = 0;
+      for (let i = 0; i <= SPRING_COUNT; i++) {
+        springs.push(new Spring(i / SPRING_COUNT));
+      }
+    }
+
+    function updateWater(t) {
+      /* Wind/Noise */
+      for (let i = 0; i < springs.length; i++) {
+        /* Add random small forces */
+        const noise = Math.sin(i * 0.1 + t * 2) * Math.cos(i * 0.05 + t * 1.5);
+        springs[i].velocity += noise * 0.72; /* Increased from 0.05 to make waves more visible */
+        springs[i].update();
+      }
+
+      const lDeltas = new Array(springs.length).fill(0);
+      const rDeltas = new Array(springs.length).fill(0);
+
+      for (let j = 0; j < 8; j++) {
+        for (let i = 0; i < springs.length; i++) {
+          if (i > 0) {
+            lDeltas[i] = spread * (springs[i].height - springs[i - 1].height);
+            springs[i - 1].velocity += lDeltas[i];
+          }
+          if (i < springs.length - 1) {
+            rDeltas[i] = spread * (springs[i].height - springs[i + 1].height);
+            springs[i + 1].velocity += rDeltas[i];
+          }
+        }
+        for (let i = 0; i < springs.length; i++) {
+          if (i > 0) springs[i - 1].height += lDeltas[i];
+          if (i < springs.length - 1) springs[i + 1].height += rDeltas[i];
+        }
+      }
+    }
+
+    /* Bubbles */
+    class Bubble {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 1;
+        this.vy = -Math.random() * 2 - 1;
+        this.size = Math.random() * 3 + 2;
+        this.life = 1.0;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.03;
+      }
+      draw(ctx) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.life * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /* Wow */
+    class Wow {
+      constructor() {
+        this.x = 0; /* Relative to ice center initially */
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.dir = 1;
+        this.state = 'ON_ICE'; /* ON_ICE, FALLING, SWIMMING */
+        this.frame = 0;
+        this.animTimer = 0;
+        this.stateTimer = 0;
+
+        /* Updated SVG with wider glasses */
+        this.img = new Image();
+        this.img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath fill='%23FFF' d='M6 4h4v2h2v2h4v2h2v6h-2v-2h-2v2h-2v-2H8v2H6v-2H4v2H2V8h2V6h2V4z'/%3E%3Cpath fill='%23000' d='M10 6h4v2h-4V6z'/%3E%3C/svg%3E";
+      }
+
+      update(ice, waterLevel) {
+        const iceX = ice.x * W;
+        const iceY = ice.y;
+        const iceHalfW = (ice.width * W) / 2;
+
+        if (this.state === 'ON_ICE') {
+          /* AI Logic */
+          this.stateTimer--;
+          if (this.stateTimer <= 0) {
+            const r = Math.random();
+            if (r < 0.3) { this.vx = 0; this.stateTimer = 60; } /* Idle */
+            else {
+              this.vx = (Math.random() > 0.5 ? 1 : -1) * 0.5;
+              this.dir = this.vx > 0 ? 1 : -1;
+              this.stateTimer = 120;
+            }
+          }
+
+          this.x += this.vx;
+
+          /* Position relative to ice */
+          const globalX = iceX + this.x * DPR;
+        }
+      }
+    }
+
+    class BearEntity {
+      constructor() {
+        this.x = W / 2;
+        this.y = H * 0.8;
+        this.vx = 2 * DPR;
+        this.vy = 0;
+        this.dir = 1;
+        this.state = 'SWIMMING';
+        this.frame = 0;
+        this.animTimer = 0;
+
+        this.angle = 0;
+        this.swimTime = 0;
+
+        this.img = new Image();
+        this.img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext x='12' y='18' font-size='20' fill='%23FFF' font-family='monospace' text-anchor='middle' font-weight='900'%3E?%3C/text%3E%3C/svg%3E";
+      }
+
+      update(ice, waterLevel) {
+        const iceX = ice.x * W;
+        const iceY = ice.y;
+
+        /* --- Physics & State --- */
+
+        const isUnderwater = this.y > waterLevel - 10 * DPR;
+
+        if (isUnderwater) {
+          this.state = 'SWIMMING';
+          this.swimTime += 0.03;
+
+          const baseDepth = waterLevel + 80 * DPR;
+          const targetDepth = baseDepth + Math.sin(this.swimTime) * 40 * DPR;
+
+          // Steering forces
+          const dy = targetDepth - this.y;
+          this.vy += dy * 0.001; /* Weaker seek to allow for momentum */
+
+          /* Cruising speed (Slower) */
+          const targetSpeed = 1.2 * DPR * this.dir;
+          this.vx += (targetSpeed - this.vx) * 0.05;
+
+          /* Random Jump / Boost */
+          /* 0.5% chance per frame to burst upwards */
+          if (Math.random() < 0.005) {
+            this.vy -= 6 * DPR; /* Sudden upward burst */
+            this.vx *= 1.5; /* Speed burst */
+          }
+
+          /* Drag */
+          this.vx *= 0.98;
+          this.vy *= 0.95;
+
+          /* Bubbles trail */
+          if (Math.abs(this.vx) > 1 * DPR && Math.random() < 0.3) {
+            bubbles.push(new Bubble(this.x, this.y));
+          }
+        } else {
+          this.state = 'AIR';
+          /* Gravity */
+          this.vy += 0.15 * DPR;
+          /* Air drag */
+          this.vx *= 0.99;
+        }
+
+        /* 2. Integration */
+        this.x += this.vx;
+        this.y += this.vy;
+
+        /* 3. Boundary / Turning */
+        const margin = 50 * DPR;
+        if (this.x > W + margin) {
+          this.x = -margin;
+        } else if (this.x < -margin) {
+          this.x = W + margin;
+        }
+
+        /* Turn around logic (optional, or just wrap) */
+        /* Let's wrap for continuous swimming, but maybe change direction occasionally? */
+        /* Let's keep it simple: Wrap around. */
+
+        /* 4. Rotation (Face velocity) */
+        /* Smoothly interpolate angle */
+        const targetAngle = Math.atan2(this.vy, this.vx);
+        /* Simple lerp for angle */
+        let diff = targetAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * 0.1;
+      }
+
+      draw(ctx, ice) {
+        const w = 40 * DPR;
+        const h = 40 * DPR;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        /* Rotate body to match movement */
+        ctx.rotate(this.angle);
+
+        /* Flip if moving left (so the question mark isn't upside down? */
+        /* Actually, for a "bullet" like penguin, we usually just rotate. */
+        /* But a question mark might look weird upside down. */
+        /* Let's just rotate. */
+
+        /* If moving left, maybe flip Y axis so ? reads correctly? */
+        /* No, let's just let it rotate freely like a projectile. */
+
+        ctx.drawImage(this.img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+    }
+
+    /* Ice Floe */
+    class IceFloe {
+      constructor() {
+        this.x = 0.2;
+        this.width = 0.15;
+        this.y = 0;
+        this.angle = 0;
+        this.vx = 0.00015;
+
+        // Generate irregular shape
+        this.points = [];
+        const segments = 32;
+        for (let i = 0; i < segments; i++) {
+          const theta = (i / segments) * Math.PI * 2;
+          const r = 1.0 - Math.random() * 0.3; /* 0.7~1.0 radius */
+          this.points.push({ x: Math.cos(theta) * r, y: Math.sin(theta) * r });
+        }
+      }
+
+      update() {
+        this.x += this.vx;
+        if (this.x > 1.1) this.x = -0.15;
+
+        const leftIdx = Math.floor((this.x - this.width / 2) * SPRING_COUNT);
+        const rightIdx = Math.floor((this.x + this.width / 2) * SPRING_COUNT);
+
+        let h1 = H * 0.85;
+        let h2 = H * 0.85;
+        if (leftIdx >= 0 && leftIdx < springs.length) h1 = springs[leftIdx].height;
+        if (rightIdx >= 0 && rightIdx < springs.length) h2 = springs[rightIdx].height;
+
+        const targetY = (h1 + h2) / 2 + 8 * DPR;
+        const dx = (rightIdx - leftIdx) * (W / SPRING_COUNT);
+        const dy = h2 - h1;
+        const targetAngle = Math.atan2(dy, dx);
+
+        this.y += (targetY - this.y) * 0.05;
+        this.angle += (targetAngle - this.angle) * 0.05;
+      }
+
+      draw(ctx) {
+        const cx = this.x * W;
+        const cy = this.y;
+        const w = this.width * W;
+        const h = w * 0.2; /* Aspect ratio */
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        /* Limit rotation angle near screen edges to prevent distortion */
+        const edgeThreshold = w / 2;
+        let adjustedAngle = this.angle;
+        if (cx < edgeThreshold || cx > W - edgeThreshold) {
+          /* Clamp rotation angle to ±0.1 radians (~5.7 degrees) near edges */
+          adjustedAngle = Math.max(-0.1, Math.min(0.1, this.angle));
+        }
+        ctx.rotate(adjustedAngle);
+
+        /* Draw Irregular Ice */
+        ctx.fillStyle = 'rgba(240,248,255, 0.95)';
+        ctx.fillStyle = 'color(display-p3 0.94 0.97 1.0 / 0.95)';
+        ctx.shadowColor = 'rgba(0,0,0,0.15)';
+        ctx.shadowBlur = 15;
+
+        ctx.beginPath();
+        this.points.forEach((p, i) => {
+          const px = p.x * (w / 2);
+          const py = p.y * (h / 2);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.fill();
+
+        /* Ice Side (Fake 3D) */
+        ctx.fillStyle = 'rgba(200,230,250, 0.9)';
+        ctx.fillStyle = 'color(display-p3 0.78 0.9 0.98 / 0.9)';
+        ctx.beginPath();
+        this.points.forEach((p, i) => {
+          const px = p.x * (w / 2);
+          const py = p.y * (h / 2) + 6 * DPR; /* Depth */
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    const iceFloe = new IceFloe();
+    const wow = new BearEntity();
+    const bubbles = [];
+
+    function resize() {
+      W = canvas.width = Math.floor(innerWidth * DPR);
+      H = canvas.height = Math.floor(innerHeight * DPR);
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+
+      initSprings();
+      const baseHeight = H * 0.75;
+      springs.forEach(s => { s.targetHeight = baseHeight; s.height = baseHeight; });
+
+      /* Fix: Initialize ice Y to water level to prevent wow from spawning in the sky */
+      if (iceFloe.y === 0) iceFloe.y = baseHeight;
+
+      initSnow();
+    }
+    window.addEventListener('resize', resize);
+
+    /* ====== WebGL Snow (Powder) ====== */
+    const snowCanvas = document.getElementById('snow-canvas');
+    let gl = null;
+    let snowProgram = null;
+    let snowCount = 6767;
+    let snowData = null; /* x, y, size, speed */
+    let snowBuffer = null;
+
+    function initSnow() {
+      snowCanvas.width = W;
+      snowCanvas.height = H;
+      gl = snowCanvas.getContext('webgl', { alpha: true, antialias: true });
+      if (!gl) return;
+
+      const vsSrc = `
+        attribute vec4 a_pos;
+        uniform vec2 u_res;
+        void main() {
+          gl_Position = vec4(
+            (a_pos.x / u_res.x) * 2.0 - 1.0,
+            1.0 - (a_pos.y / u_res.y) * 2.0,
+            0, 1
+          );
+          gl_PointSize = a_pos.z;
+        }
+      `;
+      const fsSrc = `
+        precision mediump float;
+        void main() {
+          vec2 coord = gl_PointCoord - vec2(0.5);
+          if(length(coord) > 0.5) discard;
+          gl_FragColor = vec4(1.0, 1.0, 1.0, 0.8);
+        }
+      `;
+
+      const vs = createShader(gl, gl.VERTEX_SHADER, vsSrc);
+      const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+      snowProgram = createProgram(gl, vs, fs);
+
+      snowData = new Float32Array(snowCount * 4);
+      for (let i = 0; i < snowCount; i++) {
+        snowData[i * 4 + 0] = Math.random() * W;
+        snowData[i * 4 + 1] = Math.random() * H;
+        snowData[i * 4 + 2] = Math.random() * 2 + 1; /* 1~3px size (powder) */
+        snowData[i * 4 + 3] = Math.random() * 1 + 0.5; /* speed */
+      }
+
+      snowBuffer = gl.createBuffer();
+    }
+
+    function createShader(gl, type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    }
+    function createProgram(gl, vs, fs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      return p;
+    }
+
+    function drawSnow() {
+      if (!gl || !snowProgram) return;
+
+      const t = Date.now() * 0.001;
+
+      // Update
+      for (let i = 0; i < snowCount; i++) {
+        const offset = i * 13.37; /* Pseudo-random based on index */
+        const size = snowData[i * 4 + 2];
+        const speed = snowData[i * 4 + 3];
+
+        let x = snowData[i * 4 + 0];
+        let y = snowData[i * 4 + 1];
+
+        /* Gravity */
+        y += speed;
+
+        /* Turbulence */
+        /* Wind varies by height (y), time (t), and particle identity (offset) */
+        const noise = Math.sin(t * 0.5 + y * 0.002 + offset)
+          + Math.sin(t * 1.5 + x * 0.003 + offset * 2.0) * 0.5;
+
+        /* Lighter particles (smaller size) are affected more by wind */
+        const windInfluence = (4.0 - size) * 0.2;
+        x += (0.2 + noise * 0.3) * windInfluence;
+
+        /* Wrap around */
+        if (y > H) {
+          y = -10;
+          x = Math.random() * W;
+        }
+        if (x > W) x = 0;
+        if (x < 0) x = W;
+
+        snowData[i * 4 + 0] = x;
+        snowData[i * 4 + 1] = y;
+      }
+
+      gl.viewport(0, 0, W, H);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(snowProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, snowBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, snowData, gl.DYNAMIC_DRAW);
+
+      const loc = gl.getAttribLocation(snowProgram, 'a_pos');
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 0, 0);
+
+      const uRes = gl.getUniformLocation(snowProgram, 'u_res');
+      gl.uniform2f(uRes, W, H);
+
+      gl.drawArrays(gl.POINTS, 0, snowCount);
+    }
+
+    resize();
+
+    /* Main Loop */
+    function draw() {
+      const t = Date.now() * 0.001;
+
+      /* Canvas 2D */
+      ctx.clearRect(0, 0, W, H);
+      /* Background is now handled by CSS body gradient for HDR/P3 support */
+
+      updateWater(t);
+      iceFloe.update();
+      wow.update(iceFloe, H * 0.75);
+
+      bubbles.forEach(b => b.update());
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        if (bubbles[i].life <= 0) bubbles.splice(i, 1);
+      }
+
+      /* Water Shape */
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let i = 0; i < springs.length; i++) {
+        const s = springs[i];
+        ctx.lineTo(s.x * W, s.height);
+      }
+      ctx.lineTo(W, H);
+      /* P3 Water Color with Fallback */
+      ctx.fillStyle = 'rgba(129, 212, 250, 0.6)';
+      ctx.fillStyle = 'color(display-p3 0.5 0.83 0.98 / 0.6)';
+      ctx.fill();
+
+      /* Highlight */
+      ctx.beginPath();
+      for (let i = 0; i < springs.length; i++) {
+        const s = springs[i];
+        if (i === 0) ctx.moveTo(s.x * W, s.height);
+        else ctx.lineTo(s.x * W, s.height);
+      }
+      /* P3 Highlight with Fallback */
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.strokeStyle = 'color(display-p3 1 1 1 / 0.5)';
+      ctx.lineWidth = 2 * DPR;
+      ctx.stroke();
+
+      iceFloe.draw(ctx);
+      wow.draw(ctx, iceFloe);
+      bubbles.forEach(b => b.draw(ctx));
+
+      /* WebGL Snow */
+      drawSnow();
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+  </script>
+</body>
+
+</html>
